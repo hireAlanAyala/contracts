@@ -27,13 +27,26 @@ describe("StackedDAI", function () {
       expect(await sDAI.balanceOf(owner.address)).to.equal(amount);
     });
 
-    it("Should fail if non Owner tries to mint any amount", async function () {
+    it("Should pass if a Minter tries to mint any amount", async function () {
       const amount = between(1, Number.MAX_SAFE_INTEGER);
+      const MINTER_ROLE = await sDAI.MINTER_ROLE();
+
+      await sDAI.grantRole(MINTER_ROLE, addr1.address);
+      await sDAI.connect(addr1).mint(addr1.address, amount);
+
+      expect(await sDAI.balanceOf(addr1.address)).to.equal(amount);
+    });
+
+    it("Should fail if a normal account tries to mint any amount", async function () {
+      const amount = between(1, Number.MAX_SAFE_INTEGER);
+      const MINTER_ROLE = await sDAI.MINTER_ROLE();
       const initialAddr1Balance = await sDAI.balanceOf(addr1.address);
 
       await expect(
         sDAI.connect(addr1).mint(addr1.address, amount)
-      ).to.be.revertedWith("Ownable: caller is not the owner");
+      ).to.be.revertedWith(
+        `AccessControl: account ${addr1.address.toLowerCase()} is missing role ${MINTER_ROLE}`
+      );
 
       expect(await sDAI.balanceOf(addr1.address)).to.equal(initialAddr1Balance);
     });
