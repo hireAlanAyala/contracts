@@ -13,8 +13,10 @@ const between = (min, max) => {
 
 describe("StackedDAI", function () {
   beforeEach(async function () {
-    StackedDAI = await ethers.getContractFactory("StackedDAI");
-    [owner, addr1, addr2] = await ethers.getSigners();
+    [StackedDAI, [owner, addr1, addr2]] = await Promise.all([
+      ethers.getContractFactory("StackedDAI"),
+      ethers.getSigners(),
+    ]);
 
     sDAI = await StackedDAI.deploy();
   });
@@ -39,8 +41,10 @@ describe("StackedDAI", function () {
 
     it("Should fail if a normal account tries to mint any amount", async function () {
       const amount = between(1, Number.MAX_SAFE_INTEGER);
-      const MINTER_ROLE = await sDAI.MINTER_ROLE();
-      const initialAddr1Balance = await sDAI.balanceOf(addr1.address);
+      const [MINTER_ROLE, initialAddr1Balance] = await Promise.all([
+        sDAI.MINTER_ROLE(),
+        sDAI.balanceOf(addr1.address),
+      ]);
 
       await expect(
         sDAI.connect(addr1).mint(addr1.address, amount)
@@ -83,8 +87,10 @@ describe("StackedDAI", function () {
     });
 
     it("Should be reverted if an account doesn't have the correct amount", async function () {
-      // mint and check initial balances
+      // mint initial supply
       await sDAI.mint(owner.address, 100);
+
+      // check initial balances
       const [initialOwnerBalance, initialAddr1Balance] = await Promise.all([
         sDAI.balanceOf(owner.address),
         sDAI.balanceOf(addr1.address),
