@@ -1,36 +1,33 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
+const { getRandomAmount } = require("../../../utils/testHelpers");
 
-let StackedDAI;
+let SaversDAI;
 let sDAI;
 let owner;
 let addr1;
 let addr2;
 
-const between = (min, max) => {
-  return Math.floor(Math.random() * (max - min + 1) + min);
-};
-
-describe("StackedDAI", function () {
+describe("SaversDAI", function () {
   beforeEach(async function () {
-    [StackedDAI, [owner, addr1, addr2]] = await Promise.all([
-      ethers.getContractFactory("StackedDAI"),
+    [SaversDAI, [owner, addr1, addr2]] = await Promise.all([
+      ethers.getContractFactory("SaversDAI"),
       ethers.getSigners(),
     ]);
 
-    sDAI = await StackedDAI.deploy();
+    sDAI = await SaversDAI.deploy();
   });
 
   describe("minting", function () {
     it("Should pass if Owner tries to mint any amount", async function () {
-      const amount = between(1, Number.MAX_SAFE_INTEGER);
+      const amount = getRandomAmount();
       await sDAI.mint(owner.address, amount);
 
       expect(await sDAI.balanceOf(owner.address)).to.equal(amount);
     });
 
     it("Should pass if a Minter tries to mint any amount", async function () {
-      const amount = between(1, Number.MAX_SAFE_INTEGER);
+      const amount = getRandomAmount();
       const MINTER_ROLE = await sDAI.MINTER_ROLE();
 
       await sDAI.grantRole(MINTER_ROLE, addr1.address);
@@ -40,7 +37,7 @@ describe("StackedDAI", function () {
     });
 
     it("Should fail if a normal account tries to mint any amount", async function () {
-      const amount = between(1, Number.MAX_SAFE_INTEGER);
+      const amount = getRandomAmount();
       const [MINTER_ROLE, initialAddr1Balance] = await Promise.all([
         sDAI.MINTER_ROLE(),
         sDAI.balanceOf(addr1.address),
