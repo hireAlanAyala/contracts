@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
-const { getRandomAmount } = require("../../../utils/testHelpers");
+const { getRandomAmount } = require("../../utils/testHelpers");
 
 let SaversDAI;
 let sDAI;
