@@ -25,21 +25,31 @@ contract SaversVault {
     aaveLendingPoolAddressesProvider = _aaveLendingPoolAddressesProvider;
   }
 
-  function getLendingPool() private view returns (ILendingPool) {
+  function getAaveLendingPoolAddress() private view returns (address) {
     return
-      ILendingPool(
-        ILendingPoolAddressesProvider(aaveLendingPoolAddressesProvider)
-          .getLendingPool()
-      );
+      ILendingPoolAddressesProvider(aaveLendingPoolAddressesProvider)
+        .getLendingPool();
   }
 
   function deposit(uint256 amount) external {
+    // transfer DAI from user to vault
     require(IERC20(dai).transferFrom(msg.sender, address(this), amount));
+
+    // deposit DAI into Aave lending pool and receive same amount of aDAI
+    // aDAI is managed by the vault
+    address AaveLendingPool = getAaveLendingPoolAddress();
+    require(IERC20(dai).approve(AaveLendingPool, amount));
+    ILendingPool(AaveLendingPool).deposit(dai, amount, address(this), 0);
+
+    // mint same amount of sDAI and send to user
     SaversDAI(saversDai).mint(msg.sender, amount);
   }
 
   function withdraw(uint256 amount) external {
-    ERC20Burnable(saversDai).burnFrom(msg.sender, amount);
-    require(IERC20(dai).transfer(msg.sender, amount));
+    // burn sDAI on user
+    SaversDAI(saversDai).burn(msg.sender, amount);
+
+    // burn aDAI in vault and send DAI to user
+    ILendingPool(getAaveLendingPoolAddress()).withdraw(dai, amount, msg.sender);
   }
 }

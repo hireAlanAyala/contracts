@@ -53,6 +53,43 @@ describe("SaversDAI", function () {
     });
   });
 
+  describe("burning", function () {
+    it("Should pass if Owner tries to burn any amount", async function () {
+      const amount = getRandomAmount();
+      await sDAI.mint(addr1.address, amount);
+
+      await sDAI.burn(addr1.address, amount);
+      expect(await sDAI.balanceOf(addr1.address)).to.equal(0);
+    });
+
+    it("Should pass if a Minter tries to burn any amount", async function () {
+      const amount = getRandomAmount();
+      const MINTER_ROLE = await sDAI.MINTER_ROLE();
+
+      await sDAI.grantRole(MINTER_ROLE, addr1.address);
+      await sDAI.connect(addr1).mint(addr2.address, amount);
+
+      await sDAI.burn(addr2.address, amount);
+      expect(await sDAI.balanceOf(addr2.address)).to.equal(0);
+    });
+
+    it("Should fail if a normal account tries to burn any amount", async function () {
+      const amount = getRandomAmount();
+      const [MINTER_ROLE, initialAddr1Balance] = await Promise.all([
+        sDAI.MINTER_ROLE(),
+        sDAI.balanceOf(addr1.address),
+      ]);
+
+      await expect(
+        sDAI.connect(addr1).burn(addr1.address, amount)
+      ).to.be.revertedWith(
+        `AccessControl: account ${addr1.address.toLowerCase()} is missing role ${MINTER_ROLE}`
+      );
+
+      expect(await sDAI.balanceOf(addr1.address)).to.equal(initialAddr1Balance);
+    });
+  });
+
   describe("transferring", function () {
     it("Should be allowed between any accounts", async function () {
       // mint initial supply
