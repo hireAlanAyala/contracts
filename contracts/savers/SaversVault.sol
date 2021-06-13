@@ -12,17 +12,13 @@ contract SaversVault {
   using SafeMath for uint256;
 
   address public dai;
-  address public saversDai;
   address public aaveLendingPoolAddressesProvider;
+  SaversDAI public saversDai;
 
-  constructor(
-    address _dai,
-    address _saversDai,
-    address _aaveLendingPoolAddressesProvider
-  ) {
+  constructor(address _dai, address _aaveLendingPoolAddressesProvider) {
     dai = _dai;
-    saversDai = _saversDai;
     aaveLendingPoolAddressesProvider = _aaveLendingPoolAddressesProvider;
+    saversDai = new SaversDAI();
   }
 
   function getAaveLendingPoolAddress() private view returns (address) {
@@ -42,12 +38,12 @@ contract SaversVault {
     ILendingPool(AaveLendingPool).deposit(dai, amount, address(this), 0);
 
     // mint same amount of sDAI and send to user
-    SaversDAI(saversDai).mint(msg.sender, amount);
+    saversDai.mint(msg.sender, amount);
   }
 
   function withdraw(uint256 amount) external {
     // burn sDAI on user
-    SaversDAI(saversDai).burn(msg.sender, amount);
+    saversDai.burn(msg.sender, amount);
 
     // burn aDAI in vault and send DAI to user
     ILendingPool(getAaveLendingPoolAddress()).withdraw(dai, amount, msg.sender);

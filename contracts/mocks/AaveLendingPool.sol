@@ -4,10 +4,10 @@ pragma solidity ^0.8.0;
 import "./AaveDAI.sol";
 
 contract AaveLendingPool {
-  address aDAI;
+  AaveDAI public aaveDai;
 
-  constructor(address _aDAI) {
-    aDAI = _aDAI;
+  constructor() {
+    aaveDai = new AaveDAI();
   }
 
   function deposit(
@@ -22,7 +22,7 @@ contract AaveLendingPool {
     referralCode;
 
     require(IERC20(asset).transferFrom(msg.sender, address(this), amount));
-    AaveDAI(aDAI).mint(onBehalfOf, amount);
+    aaveDai.mint(onBehalfOf, amount);
   }
 
   function withdraw(
@@ -30,7 +30,7 @@ contract AaveLendingPool {
     uint256 amount,
     address to
   ) external returns (uint256) {
-    AaveDAI(aDAI).burn(msg.sender, amount);
+    aaveDai.burn(msg.sender, amount);
     require(IERC20(asset).transfer(to, amount));
     return amount;
   }

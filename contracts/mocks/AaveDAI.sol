@@ -2,21 +2,16 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract AaveDAI is ERC20, AccessControl {
-  bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+contract AaveDAI is ERC20, Ownable {
+  constructor() ERC20("AaveDAI", "aDAI") {}
 
-  constructor() ERC20("SaversDAI", "sDAI") {
-    _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    _setupRole(MINTER_ROLE, msg.sender);
-  }
-
-  function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
+  function mint(address to, uint256 amount) public onlyOwner {
     _mint(to, amount);
   }
 
-  function burn(address account, uint256 amount) public {
+  function burn(address account, uint256 amount) public onlyOwner {
     _burn(account, amount);
   }
 }

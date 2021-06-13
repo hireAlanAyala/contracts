@@ -2,14 +2,11 @@ const { ethers, waffle } = require("hardhat");
 const { expect } = require("chai");
 const { getRandomAmount } = require("../../utils/testHelpers");
 const ILendingPoolAddressesProvider = require("../../artifacts/contracts/external/aave/ILendingPoolAddressesProvider.sol/ILendingPoolAddressesProvider.json");
+const AaveDAI = require("../../artifacts/contracts/mocks/AaveDAI.sol/AaveDAI.json");
+const SaversDAI = require("../../artifacts/contracts/savers/SaversDAI.sol/SaversDAI.json");
 
 const INITIAL_DAI = Number.MAX_SAFE_INTEGER - 1;
 
-let OriginalDAI;
-let AaveDAI;
-let SaversDAI;
-let AaveLendingPoolContract;
-let SaversVaultContract;
 let aaveLendingPoolAddressesProvider;
 let aaveLendingPool;
 let DAI;
@@ -20,42 +17,35 @@ let owner;
 
 describe("SaversVault", function () {
   beforeEach(async function () {
-    [
-      OriginalDAI,
-      AaveDAI,
-      SaversDAI,
-      AaveLendingPoolContract,
-      SaversVaultContract,
-      [owner],
-    ] = await Promise.all([
-      ethers.getContractFactory("DAI"),
-      ethers.getContractFactory("AaveDAI"),
-      ethers.getContractFactory("SaversDAI"),
-      ethers.getContractFactory("AaveLendingPool"),
-      ethers.getContractFactory("SaversVault"),
+    [DAI, aaveLendingPool, [owner]] = await Promise.all([
+      ethers.getContractFactory("DAI").then((c) => c.deploy(INITIAL_DAI)),
+      ethers.getContractFactory("AaveLendingPool").then((c) => c.deploy()),
       ethers.getSigners(),
     ]);
 
-    [aaveLendingPoolAddressesProvider, DAI, aDAI, sDAI] = await Promise.all([
-      waffle.deployMockContract(owner, ILendingPoolAddressesProvider.abi),
-      OriginalDAI.deploy(INITIAL_DAI),
-      AaveDAI.deploy(),
-      SaversDAI.deploy(),
-    ]);
-    [aaveLendingPool, SaversVault] = await Promise.all([
-      AaveLendingPoolContract.deploy(aDAI.address),
-      SaversVaultContract.deploy(
-        DAI.address,
-        sDAI.address,
-        aaveLendingPoolAddressesProvider.address
-      ),
-    ]);
+    aaveLendingPoolAddressesProvider = await waffle.deployMockContract(
+      owner,
+      ILendingPoolAddressesProvider.abi
+    );
 
-    const MINTER_ROLE = await sDAI.MINTER_ROLE();
+    SaversVault = await ethers
+      .getContractFactory("SaversVault")
+      .then((c) =>
+        c.deploy(DAI.address, aaveLendingPoolAddressesProvider.address)
+      );
+
+    aDAI = new ethers.Contract(
+      await aaveLendingPool.aaveDai(),
+      AaveDAI.abi,
+      owner
+    );
+    sDAI = new ethers.Contract(
+      await SaversVault.saversDai(),
+      SaversDAI.abi,
+      owner
+    );
+
     await Promise.all([
-      sDAI.grantRole(MINTER_ROLE, SaversVault.address),
-      aDAI.grantRole(MINTER_ROLE, aaveLendingPool.address),
-      sDAI.approve(SaversVault.address, ethers.constants.MaxUint256),
       DAI.approve(SaversVault.address, ethers.constants.MaxUint256),
       aaveLendingPoolAddressesProvider.mock.getLendingPool.returns(
         aaveLendingPool.address
