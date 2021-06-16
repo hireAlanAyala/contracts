@@ -5,8 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./SaversVault.sol";
 
-import "hardhat/console.sol";
-
 contract SaversDAI is ERC20, Ownable {
   address saversVault;
 

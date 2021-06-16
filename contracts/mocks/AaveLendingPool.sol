@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./AaveDAI.sol";
-import "hardhat/console.sol";
 
 /**
  * @dev A mock of the Aave lending pool for testing purposes.

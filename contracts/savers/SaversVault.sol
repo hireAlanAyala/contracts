@@ -8,8 +8,6 @@ import "../external/aave/ILendingPoolAddressesProvider.sol";
 import "../external/aave/ILendingPool.sol";
 import "./SaversDAI.sol";
 
-import "hardhat/console.sol";
-
 contract SaversVault {
   using SafeMath for uint256;
 
