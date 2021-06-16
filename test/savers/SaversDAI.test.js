@@ -1,7 +1,9 @@
-const { ethers } = require("hardhat");
+const { ethers, waffle } = require("hardhat");
 const { expect } = require("chai");
 const { getRandomAmount } = require("../../utils/testHelpers");
+const SaversVault = require("../../artifacts/contracts/savers/SaversVault.sol/SaversVault.json");
 
+let saversVault;
 let sDAI;
 let owner;
 let addr1;
@@ -9,9 +11,15 @@ let addr2;
 
 describe("SaversDAI", function () {
   beforeEach(async function () {
-    [sDAI, [owner, addr1, addr2]] = await Promise.all([
-      ethers.getContractFactory("SaversDAI").then((c) => c.deploy()),
-      ethers.getSigners(),
+    [owner, addr1, addr2] = await ethers.getSigners();
+
+    saversVault = await waffle.deployMockContract(owner, SaversVault.abi);
+
+    [sDAI] = await Promise.all([
+      ethers
+        .getContractFactory("SaversDAI")
+        .then((c) => c.deploy(saversVault.address)),
+      saversVault.mock.interestEarnedForAccount.returns(0),
     ]);
   });
 
@@ -108,6 +116,82 @@ describe("SaversDAI", function () {
       ]);
       expect(endOwnerBalance).to.equal(100);
       expect(endAddr1Balance).to.equal(0);
+    });
+
+    it("should send correct amounts after interest has been earned", async function () {
+      // mint initial supply
+      await sDAI.mint(owner.address, 100);
+
+      // check initial balances
+      const [initialOwnerBalance, initialAddr1Balance, initialAddr2Balance] =
+        await Promise.all([
+          sDAI.balanceOf(owner.address),
+          sDAI.balanceOf(addr1.address),
+          sDAI.balanceOf(addr2.address),
+        ]);
+      expect(initialOwnerBalance).to.equal(100);
+      expect(initialAddr1Balance).to.equal(0);
+      expect(initialAddr2Balance).to.equal(0);
+
+      // mock interest
+      const interestEarned = getRandomAmount();
+      await saversVault.mock.interestEarnedForAccount.returns(interestEarned);
+
+      // transfer and check end balances
+      await sDAI.transfer(addr1.address, 50 + interestEarned);
+      await sDAI.connect(addr1).transfer(addr2.address, 25 + interestEarned);
+      const [endOwnerBalance, endAddr1Balance, endAddr2Balance] =
+        await Promise.all([
+          sDAI.balanceOf(owner.address),
+          sDAI.balanceOf(addr1.address),
+          sDAI.balanceOf(addr2.address),
+        ]);
+      expect(endOwnerBalance).to.equal(50 + interestEarned);
+      expect(endAddr1Balance).to.equal(25 + interestEarned);
+      expect(endAddr2Balance).to.equal(25 + interestEarned);
+    });
+
+    it("should send correct amounts when handled by a third account", async function () {
+      // mint initial supply
+      await sDAI.mint(owner.address, 100);
+
+      // check initial balances
+      const [initialOwnerBalance, initialAddr1Balance, initialAddr2Balance] =
+        await Promise.all([
+          sDAI.balanceOf(owner.address),
+          sDAI.balanceOf(addr1.address),
+          sDAI.balanceOf(addr2.address),
+          sDAI.approve(owner.address, 100),
+          sDAI.connect(addr1).approve(owner.address, 100),
+        ]);
+      expect(initialOwnerBalance).to.equal(100);
+      expect(initialAddr1Balance).to.equal(0);
+      expect(initialAddr2Balance).to.equal(0);
+
+      // mock interest
+      const interestEarned = getRandomAmount();
+      await saversVault.mock.interestEarnedForAccount.returns(interestEarned);
+
+      // transfer and check end balances
+      await sDAI.transferFrom(
+        owner.address,
+        addr1.address,
+        50 + interestEarned
+      );
+      await sDAI.transferFrom(
+        addr1.address,
+        addr2.address,
+        25 + interestEarned
+      );
+      const [endOwnerBalance, endAddr1Balance, endAddr2Balance] =
+        await Promise.all([
+          sDAI.balanceOf(owner.address),
+          sDAI.balanceOf(addr1.address),
+          sDAI.balanceOf(addr2.address),
+        ]);
+      expect(endOwnerBalance).to.equal(50 + interestEarned);
+      expect(endAddr1Balance).to.equal(25 + interestEarned);
+      expect(endAddr2Balance).to.equal(25 + interestEarned);
     });
   });
 });
