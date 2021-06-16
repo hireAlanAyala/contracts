@@ -1,4 +1,7 @@
 node_modules
+coverage
+*.lcov
+coverage.json
 cache
 artifacts
 .DS_Store

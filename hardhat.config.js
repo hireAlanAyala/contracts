@@ -1,5 +1,6 @@
 require("@nomiclabs/hardhat-waffle");
 require("hardhat-watcher");
+require("solidity-coverage");
 
 /**
  * @type import('hardhat/config').HardhatUserConfig

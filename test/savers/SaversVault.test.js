@@ -189,14 +189,19 @@ describe("SaversVault", function () {
 
     it("Should be successful after interest earned", async function () {
       const amount = getRandomAmount();
-      await SaversVault.deposit(amount);
+      await DAI.transfer(addr1.address, amount);
+      await SaversVault.connect(addr1).deposit(amount);
 
-      await triggerInterest();
-      await SaversVault.withdraw(await sDAI.balanceOf(owner.address));
+      const interestEarned = await triggerInterest();
+      await SaversVault.connect(addr1).withdraw(
+        await sDAI.balanceOf(addr1.address)
+      );
 
-      expect(await sDAI.balanceOf(owner.address)).to.equal(0);
-      expect(await aDAI.balanceOf(owner.address)).to.equal(0);
-      expect(await DAI.balanceOf(owner.address)).to.equal(INITIAL_DAI);
+      expect(await sDAI.balanceOf(addr1.address)).to.equal(0);
+      expect(await aDAI.balanceOf(addr1.address)).to.equal(0);
+      expect(await DAI.balanceOf(addr1.address)).to.equal(
+        ethers.BigNumber.from(amount).add(interestEarned)
+      );
 
       expect(await sDAI.balanceOf(SaversVault.address)).to.equal(0);
       expect(await aDAI.balanceOf(SaversVault.address)).to.equal(0);
