@@ -24,7 +24,7 @@ contract AaveLendingPool {
     address onBehalfOf,
     uint16 referralCode
   ) external {
-    // supress warnings
+    // suppress warnings
     asset;
     onBehalfOf;
     referralCode;

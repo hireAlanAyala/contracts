@@ -5,6 +5,7 @@ const {
   getRandomBasisPoints,
 } = require("../../utils/testHelpers");
 const ILendingPoolAddressesProvider = require("../../artifacts/contracts/external/aave/ILendingPoolAddressesProvider.sol/ILendingPoolAddressesProvider.json");
+const FarmToken = require("../../artifacts/contracts/mocks/FarmToken.sol/FarmToken.json");
 const AaveDAI = require("../../artifacts/contracts/mocks/AaveDAI.sol/AaveDAI.json");
 const SaversDAI = require("../../artifacts/contracts/savers/SaversDAI.sol/SaversDAI.json");
 
@@ -13,8 +14,11 @@ const WEI_MARGIN_OF_ERROR = 10;
 const calculateInterest = (amount, bp) =>
   ethers.BigNumber.from(amount).mul(bp).div(10000);
 
+let uniswapV2Router;
+let aaveLiquidityMining;
 let aaveLendingPoolAddressesProvider;
 let aaveLendingPool;
+let farmToken;
 let DAI;
 let aDAI;
 let sDAI;
@@ -26,8 +30,16 @@ let triggerInterest;
 
 describe("SaversVault", function () {
   beforeEach(async function () {
-    [DAI, aaveLendingPool, [owner, addr1, addr2]] = await Promise.all([
+    [
+      DAI,
+      uniswapV2Router,
+      aaveLiquidityMining,
+      aaveLendingPool,
+      [owner, addr1, addr2],
+    ] = await Promise.all([
       ethers.getContractFactory("DAI").then((c) => c.deploy(INITIAL_DAI)),
+      ethers.getContractFactory("UniswapRouter").then((c) => c.deploy()),
+      ethers.getContractFactory("AaveLiquidityMining").then((c) => c.deploy()),
       ethers.getContractFactory("AaveLendingPool").then((c) => c.deploy()),
       ethers.getSigners(),
     ]);
@@ -41,6 +53,11 @@ describe("SaversVault", function () {
       AaveDAI.abi,
       owner
     );
+    farmToken = new ethers.Contract(
+      await aaveLiquidityMining.farmToken(),
+      FarmToken.abi,
+      owner
+    );
 
     SaversVault = await ethers
       .getContractFactory("SaversVault")
@@ -48,7 +65,10 @@ describe("SaversVault", function () {
         c.deploy(
           DAI.address,
           aDAI.address,
-          aaveLendingPoolAddressesProvider.address
+          aaveLendingPoolAddressesProvider.address,
+          aaveLiquidityMining.address,
+          farmToken.address,
+          uniswapV2Router.address
         )
       );
     sDAI = new ethers.Contract(
@@ -304,6 +324,65 @@ describe("SaversVault", function () {
       expect(sumOfAccountBalances.sub(await sDAI.totalSupply())).to.be.below(
         WEI_MARGIN_OF_ERROR
       );
+    });
+  });
+
+  describe("reinvesting incentives", function () {
+    let amount;
+    let incentivesAmount;
+
+    beforeEach(async function () {
+      amount = getRandomAmount();
+      incentivesAmount = getRandomAmount();
+
+      await Promise.all([
+        DAI.transfer(addr1.address, amount),
+        DAI.transfer(uniswapV2Router.address, incentivesAmount),
+      ]);
+    });
+
+    it("Should be successful", async function () {
+      await SaversVault.connect(addr1).deposit(amount);
+      await triggerInterest();
+      const initAmount = await sDAI.balanceOf(addr1.address);
+
+      await SaversVault.reinvestIncentives(
+        incentivesAmount,
+        [aDAI.address],
+        [farmToken.address, DAI.address]
+      );
+
+      const finalAmount =
+        ethers.BigNumber.from(initAmount).add(incentivesAmount);
+      expect(await sDAI.balanceOf(addr1.address)).to.equal(finalAmount);
+      expect(await aDAI.balanceOf(addr1.address)).to.equal(0);
+      expect(await DAI.balanceOf(addr1.address)).to.equal(0);
+
+      expect(await sDAI.balanceOf(SaversVault.address)).to.equal(0);
+      expect(await aDAI.balanceOf(SaversVault.address)).to.equal(finalAmount);
+      expect(await DAI.balanceOf(SaversVault.address)).to.equal(0);
+    });
+
+    it("should revert if no farm tokens are claimed", async function () {
+      await SaversVault.connect(addr1).deposit(amount);
+      await triggerInterest();
+      const initAmount = await sDAI.balanceOf(addr1.address);
+
+      expect(
+        SaversVault.reinvestIncentives(
+          0,
+          [aDAI.address],
+          [farmToken.address, DAI.address]
+        )
+      ).to.be.revertedWith("No farm tokens to reinvest");
+
+      expect(await sDAI.balanceOf(addr1.address)).to.equal(initAmount);
+      expect(await aDAI.balanceOf(addr1.address)).to.equal(0);
+      expect(await DAI.balanceOf(addr1.address)).to.equal(0);
+
+      expect(await sDAI.balanceOf(SaversVault.address)).to.equal(0);
+      expect(await aDAI.balanceOf(SaversVault.address)).to.equal(initAmount);
+      expect(await DAI.balanceOf(SaversVault.address)).to.equal(0);
     });
   });
 });

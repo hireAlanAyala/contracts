@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import {IUniswapV2Router02} from "../external/uniswap/IUniswapV2Router02.sol";
+import "../external/aave/IAaveLiquidityMining.sol";
 import "../external/aave/ILendingPoolAddressesProvider.sol";
 import "../external/aave/ILendingPool.sol";
 import "./SaversDAI.sol";
@@ -14,6 +16,9 @@ contract SaversVault {
   address public dai;
   address public aaveDai;
   address public aaveLendingPoolAddressesProvider;
+  address public aaveLiquidityMining;
+  address public farmToken;
+  address public uniswapV2Router;
   SaversDAI public saversDai;
   uint256 totalDaiDeposits;
   mapping(address => uint256) public accountDaiDeposits;
@@ -21,19 +26,31 @@ contract SaversVault {
   constructor(
     address _dai,
     address _aaveDai,
-    address _aaveLendingPoolAddressesProvider
+    address _aaveLendingPoolAddressesProvider,
+    address _aaveLiquidityMining,
+    address _farmToken,
+    address _uniswapV2Router
   ) {
     dai = _dai;
     aaveDai = _aaveDai;
     aaveLendingPoolAddressesProvider = _aaveLendingPoolAddressesProvider;
+    aaveLiquidityMining = _aaveLiquidityMining;
+    farmToken = _farmToken;
+    uniswapV2Router = _uniswapV2Router;
     saversDai = new SaversDAI(address(this));
     totalDaiDeposits = 0;
   }
 
-  function getAaveLendingPoolAddress() private view returns (address) {
+  function _getAaveLendingPoolAddress() private view returns (address) {
     return
       ILendingPoolAddressesProvider(aaveLendingPoolAddressesProvider)
         .getLendingPool();
+  }
+
+  function _supply(uint256 amount) private {
+    address AaveLendingPool = _getAaveLendingPoolAddress();
+    require(IERC20(dai).approve(AaveLendingPool, amount));
+    ILendingPool(AaveLendingPool).deposit(dai, amount, address(this), 0);
   }
 
   /**
@@ -45,9 +62,7 @@ contract SaversVault {
 
     // deposit DAI into Aave lending pool and receive same amount of aDAI
     // aDAI is managed by the vault
-    address AaveLendingPool = getAaveLendingPoolAddress();
-    require(IERC20(dai).approve(AaveLendingPool, amount));
-    ILendingPool(AaveLendingPool).deposit(dai, amount, address(this), 0);
+    _supply(amount);
 
     // mint same amount of sDAI and send to user
     saversDai.mint(msg.sender, amount);
@@ -68,11 +83,55 @@ contract SaversVault {
     uint256 depositAmount = amount - interestEarnedForAccount(msg.sender);
 
     // burn aDAI in vault and send DAI to user
-    ILendingPool(getAaveLendingPoolAddress()).withdraw(dai, amount, msg.sender);
+    ILendingPool(_getAaveLendingPoolAddress()).withdraw(
+      dai,
+      amount,
+      msg.sender
+    );
 
     // update mappings
     totalDaiDeposits -= depositAmount;
     accountDaiDeposits[msg.sender] -= depositAmount;
+  }
+
+  /**
+   * @dev Claims liquidity mining incentives and reinvests it.
+   */
+  function reinvestIncentives(
+    uint256 amount,
+    address[] calldata incentivisedAssets,
+    address[] calldata swapPath
+  ) external {
+    // Claim the farm tokens
+    IAaveLiquidityMining(aaveLiquidityMining).claimRewards(
+      incentivisedAssets,
+      amount,
+      address(this)
+    );
+    uint256 claimedAmount = IERC20(farmToken).balanceOf(address(this));
+    require(claimedAmount > 0, "No farm tokens to reinvest");
+
+    // Get qoute for swapping farm token to DAI
+    uint256[] memory amounts =
+      IUniswapV2Router02(uniswapV2Router).getAmountsOut(
+        claimedAmount,
+        swapPath
+      );
+    uint256 amountOut = amounts[amounts.length.sub(1)];
+    uint256 amountOutMin = (amountOut * 9950) / 10000; // 0.5% slippage
+
+    // Swap farm token for DAI
+    require(IERC20(farmToken).approve(uniswapV2Router, claimedAmount));
+    IUniswapV2Router02(uniswapV2Router).swapExactTokensForTokens(
+      claimedAmount,
+      amountOutMin,
+      swapPath,
+      address(this),
+      block.timestamp
+    );
+
+    // Reinvest DAI into Aave lending pool
+    _supply(amount);
   }
 
   /**
