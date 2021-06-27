@@ -20,7 +20,7 @@ contract SaversVault {
   address public farmToken;
   address public uniswapV2Router;
   SaversDAI public saversDai;
-  uint256 totalDaiDeposits;
+  uint256 public totalDaiDeposits;
   mapping(address => uint256) public accountDaiDeposits;
 
   constructor(
