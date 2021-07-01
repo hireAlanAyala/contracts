@@ -11,3 +11,6 @@ coverage.json
 # Hardhat files
 cache
 artifacts
+
+# local env files
+.env

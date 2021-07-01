@@ -14,3 +14,10 @@
     </a>
   </p>
 </p>
+
+## Deployed Contracts
+
+⚠️ For testing only ⚠️
+
+- SaversVault: https://polygonscan.com/address/0x3072594B99e7eeAb427F63f9C70aBCe14Ba16c2A
+- SaversDAI: https://polygonscan.com/address/0x159cc39c3995fd666338a540b305569120dda339
