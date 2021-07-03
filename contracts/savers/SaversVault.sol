@@ -68,7 +68,7 @@ contract SaversVault {
   /**
    * @dev Redeem sDAI for deposited DAI + interest earned.
    */
-  function withdraw(uint256 amount) external {
+  function withdraw(uint256 amount) public {
     // burn sDAI on user
     saversDai.burn(msg.sender, saversDai.getPrincialOnly(msg.sender, amount));
 
@@ -78,6 +78,14 @@ contract SaversVault {
       amount,
       msg.sender
     );
+  }
+
+  /**
+   * @dev Redeem max amount of sDAI on sender account.
+   */
+  function withdrawMax() external {
+    uint256 balance = saversDai.balanceOf(msg.sender);
+    withdraw(balance);
   }
 
   /**

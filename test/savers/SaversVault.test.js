@@ -331,6 +331,31 @@ describe("SaversVault", function () {
     });
   });
 
+  describe("withdrawing max balance", function () {
+    it("Should be successful with non zero balance", async function () {
+      const amount = getRandomAmount();
+      await DAI.transfer(addr1.address, amount);
+      await SaversVault.connect(addr1).deposit(amount);
+
+      const interestEarned = await triggerInterest();
+      await SaversVault.connect(addr1).withdrawMax();
+
+      expect(await sDAI.balanceOf(addr1.address)).to.equal(0);
+      expect(await aDAI.balanceOf(addr1.address)).to.equal(0);
+      expect(await DAI.balanceOf(addr1.address)).to.equal(
+        ethers.BigNumber.from(amount).add(interestEarned)
+      );
+
+      expect(await sDAI.balanceOf(SaversVault.address)).to.equal(0);
+      expect(await aDAI.balanceOf(SaversVault.address)).to.equal(0);
+      expect(await DAI.balanceOf(SaversVault.address)).to.equal(0);
+    });
+
+    it("Should be reverted with zero balance", async function () {
+      expect(SaversVault.connect(addr1).withdrawMax()).to.be.reverted;
+    });
+  });
+
   describe("account balance", function () {
     let ownerAmount;
     let addr1Amount;
