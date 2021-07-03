@@ -12,12 +12,14 @@ contract SaversDAI is ERC20, Ownable {
     saversVault = _saversVault;
   }
 
-  function getPrincipalBalance(address account, uint256 amount)
-    private
+  function getPrincialOnly(address account, uint256 amount)
+    public
     view
     returns (uint256)
   {
-    return amount - SaversVault(saversVault).interestEarnedForAccount(account);
+    uint256 principalPortionScaled =
+      (amount * ERC20.balanceOf(account) * 10**18) / balanceOf(account);
+    return principalPortionScaled / 10**18;
   }
 
   function mint(address to, uint256 amount) public onlyOwner {
@@ -26,6 +28,10 @@ contract SaversDAI is ERC20, Ownable {
 
   function burn(address account, uint256 amount) public onlyOwner {
     _burn(account, amount);
+  }
+
+  function balanceOfPrincipal(address account) public view returns (uint256) {
+    return ERC20.balanceOf(account);
   }
 
   function balanceOf(address account) public view override returns (uint256) {
@@ -39,7 +45,7 @@ contract SaversDAI is ERC20, Ownable {
     override
     returns (bool)
   {
-    require(ERC20.transfer(recipient, getPrincipalBalance(msg.sender, amount)));
+    require(ERC20.transfer(recipient, getPrincialOnly(msg.sender, amount)));
     return true;
   }
 
@@ -49,9 +55,13 @@ contract SaversDAI is ERC20, Ownable {
     uint256 amount
   ) public override returns (bool) {
     require(
-      ERC20.transferFrom(sender, recipient, getPrincipalBalance(sender, amount))
+      ERC20.transferFrom(sender, recipient, getPrincialOnly(sender, amount))
     );
     return true;
+  }
+
+  function totalPrincipalSupply() public view returns (uint256) {
+    return ERC20.totalSupply();
   }
 
   function totalSupply() public view override returns (uint256) {

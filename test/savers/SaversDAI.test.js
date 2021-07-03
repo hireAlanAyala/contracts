@@ -94,6 +94,37 @@ describe("SaversDAI", function () {
       expect(endAddr2Balance).to.equal(25);
     });
 
+    it("should send correct amounts when handled by a third account", async function () {
+      // mint initial supply
+      await sDAI.mint(owner.address, 100);
+
+      // check initial balances
+      const [initialOwnerBalance, initialAddr1Balance, initialAddr2Balance] =
+        await Promise.all([
+          sDAI.balanceOf(owner.address),
+          sDAI.balanceOf(addr1.address),
+          sDAI.balanceOf(addr2.address),
+          sDAI.approve(owner.address, 100),
+          sDAI.connect(addr1).approve(owner.address, 100),
+        ]);
+      expect(initialOwnerBalance).to.equal(100);
+      expect(initialAddr1Balance).to.equal(0);
+      expect(initialAddr2Balance).to.equal(0);
+
+      // transfer and check end balances
+      await sDAI.transferFrom(owner.address, addr1.address, 50);
+      await sDAI.transferFrom(addr1.address, addr2.address, 25);
+      const [endOwnerBalance, endAddr1Balance, endAddr2Balance] =
+        await Promise.all([
+          sDAI.balanceOf(owner.address),
+          sDAI.balanceOf(addr1.address),
+          sDAI.balanceOf(addr2.address),
+        ]);
+      expect(endOwnerBalance).to.equal(50);
+      expect(endAddr1Balance).to.equal(25);
+      expect(endAddr2Balance).to.equal(25);
+    });
+
     it("Should be reverted if an account doesn't have the correct amount", async function () {
       // mint initial supply
       await sDAI.mint(owner.address, 100);
@@ -116,82 +147,6 @@ describe("SaversDAI", function () {
       ]);
       expect(endOwnerBalance).to.equal(100);
       expect(endAddr1Balance).to.equal(0);
-    });
-
-    it("should send correct amounts after interest has been earned", async function () {
-      // mint initial supply
-      await sDAI.mint(owner.address, 100);
-
-      // check initial balances
-      const [initialOwnerBalance, initialAddr1Balance, initialAddr2Balance] =
-        await Promise.all([
-          sDAI.balanceOf(owner.address),
-          sDAI.balanceOf(addr1.address),
-          sDAI.balanceOf(addr2.address),
-        ]);
-      expect(initialOwnerBalance).to.equal(100);
-      expect(initialAddr1Balance).to.equal(0);
-      expect(initialAddr2Balance).to.equal(0);
-
-      // mock interest
-      const interestEarned = getRandomAmount();
-      await saversVault.mock.interestEarnedForAccount.returns(interestEarned);
-
-      // transfer and check end balances
-      await sDAI.transfer(addr1.address, 50 + interestEarned);
-      await sDAI.connect(addr1).transfer(addr2.address, 25 + interestEarned);
-      const [endOwnerBalance, endAddr1Balance, endAddr2Balance] =
-        await Promise.all([
-          sDAI.balanceOf(owner.address),
-          sDAI.balanceOf(addr1.address),
-          sDAI.balanceOf(addr2.address),
-        ]);
-      expect(endOwnerBalance).to.equal(50 + interestEarned);
-      expect(endAddr1Balance).to.equal(25 + interestEarned);
-      expect(endAddr2Balance).to.equal(25 + interestEarned);
-    });
-
-    it("should send correct amounts when handled by a third account", async function () {
-      // mint initial supply
-      await sDAI.mint(owner.address, 100);
-
-      // check initial balances
-      const [initialOwnerBalance, initialAddr1Balance, initialAddr2Balance] =
-        await Promise.all([
-          sDAI.balanceOf(owner.address),
-          sDAI.balanceOf(addr1.address),
-          sDAI.balanceOf(addr2.address),
-          sDAI.approve(owner.address, 100),
-          sDAI.connect(addr1).approve(owner.address, 100),
-        ]);
-      expect(initialOwnerBalance).to.equal(100);
-      expect(initialAddr1Balance).to.equal(0);
-      expect(initialAddr2Balance).to.equal(0);
-
-      // mock interest
-      const interestEarned = getRandomAmount();
-      await saversVault.mock.interestEarnedForAccount.returns(interestEarned);
-
-      // transfer and check end balances
-      await sDAI.transferFrom(
-        owner.address,
-        addr1.address,
-        50 + interestEarned
-      );
-      await sDAI.transferFrom(
-        addr1.address,
-        addr2.address,
-        25 + interestEarned
-      );
-      const [endOwnerBalance, endAddr1Balance, endAddr2Balance] =
-        await Promise.all([
-          sDAI.balanceOf(owner.address),
-          sDAI.balanceOf(addr1.address),
-          sDAI.balanceOf(addr2.address),
-        ]);
-      expect(endOwnerBalance).to.equal(50 + interestEarned);
-      expect(endAddr1Balance).to.equal(25 + interestEarned);
-      expect(endAddr2Balance).to.equal(25 + interestEarned);
     });
   });
 });

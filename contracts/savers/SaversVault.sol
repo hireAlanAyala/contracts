@@ -20,8 +20,6 @@ contract SaversVault {
   address public farmToken;
   address public uniswapV2Router;
   SaversDAI public saversDai;
-  uint256 public totalDaiDeposits;
-  mapping(address => uint256) public accountDaiDeposits;
 
   constructor(
     address _dai,
@@ -38,7 +36,6 @@ contract SaversVault {
     farmToken = _farmToken;
     uniswapV2Router = _uniswapV2Router;
     saversDai = new SaversDAI(address(this));
-    totalDaiDeposits = 0;
   }
 
   function _getAaveLendingPoolAddress() private view returns (address) {
@@ -66,24 +63,14 @@ contract SaversVault {
 
     // mint same amount of sDAI and send to user
     saversDai.mint(msg.sender, amount);
-
-    // update mappings
-    totalDaiDeposits += amount;
-    accountDaiDeposits[msg.sender] += amount;
   }
 
   /**
    * @dev Redeem sDAI for deposited DAI + interest earned.
    */
   function withdraw(uint256 amount) external {
-    // get the correct portion of principal deposit to withdraw
-    uint256 withdrawnDepositScaled =
-      (amount * accountDaiDeposits[msg.sender] * 10**18) /
-        (accountDaiDeposits[msg.sender] + interestEarnedForAccount(msg.sender));
-    uint256 withdrawnDeposit = withdrawnDepositScaled / 10**18;
-
     // burn sDAI on user
-    saversDai.burn(msg.sender, withdrawnDeposit);
+    saversDai.burn(msg.sender, saversDai.getPrincialOnly(msg.sender, amount));
 
     // burn aDAI in vault and send DAI to user
     ILendingPool(_getAaveLendingPoolAddress()).withdraw(
@@ -91,10 +78,6 @@ contract SaversVault {
       amount,
       msg.sender
     );
-
-    // update mappings
-    totalDaiDeposits -= withdrawnDeposit;
-    accountDaiDeposits[msg.sender] -= withdrawnDeposit;
   }
 
   /**
@@ -142,7 +125,9 @@ contract SaversVault {
    * totalInterest = balanceOfInterestBearingToken - totalAssetDeposit.
    */
   function totalInterestEarned() public view returns (uint256) {
-    return IERC20(aaveDai).balanceOf(address(this)) - totalDaiDeposits;
+    return
+      IERC20(aaveDai).balanceOf(address(this)) -
+      saversDai.totalPrincipalSupply();
   }
 
   /**
@@ -154,12 +139,13 @@ contract SaversVault {
     view
     returns (uint256)
   {
+    uint256 totalDaiDeposits = saversDai.totalPrincipalSupply();
     if (totalDaiDeposits == 0) {
       return 0;
     }
-    uint256 shareOfDaiReserves =
-      (accountDaiDeposits[account] * (10**18)) / totalDaiDeposits;
 
+    uint256 shareOfDaiReserves =
+      (saversDai.balanceOfPrincipal(account) * (10**18)) / totalDaiDeposits;
     return (totalInterestEarned() * shareOfDaiReserves) / (10**18);
   }
 }
