@@ -96,6 +96,15 @@ contract SaversVault {
     address[] calldata incentivisedAssets,
     address[] calldata swapPath
   ) external {
+    address startAsset = swapPath[0];
+    require(
+      startAsset == farmToken,
+      "swapPath should start with the farm token"
+    );
+
+    address finalAsset = swapPath[swapPath.length.sub(1)];
+    require(finalAsset == dai, "swapPath should end with DAI");
+
     // Claim the farm tokens
     IAaveLiquidityMining(aaveLiquidityMining).claimRewards(
       incentivisedAssets,
@@ -121,11 +130,12 @@ contract SaversVault {
       amountOutMin,
       swapPath,
       address(this),
-      block.timestamp
+      block.timestamp + 600 // 10 minute deadline
     );
 
     // Reinvest DAI into Aave lending pool
-    _supply(amount);
+    uint256 balance = IERC20(finalAsset).balanceOf(address(this));
+    _supply(balance);
   }
 
   /**

@@ -495,7 +495,7 @@ describe("SaversVault", function () {
       await triggerInterest();
       const initAmount = await sDAI.balanceOf(addr1.address);
 
-      expect(
+      await expect(
         SaversVault.reinvestIncentives(
           0,
           [aDAI.address],
@@ -510,6 +510,32 @@ describe("SaversVault", function () {
       expect(await sDAI.balanceOf(SaversVault.address)).to.equal(0);
       expect(await aDAI.balanceOf(SaversVault.address)).to.equal(initAmount);
       expect(await DAI.balanceOf(SaversVault.address)).to.equal(0);
+    });
+
+    it("should revert if swap path doesn't begin with farm token", async function () {
+      await SaversVault.connect(addr1).deposit(amount);
+      await triggerInterest();
+
+      await expect(
+        SaversVault.reinvestIncentives(
+          incentivesAmount,
+          [aDAI.address],
+          [sDAI.address, DAI.address]
+        )
+      ).to.be.revertedWith("swapPath should start with the farm token");
+    });
+
+    it("should revert if swap path doesn't end with DAI", async function () {
+      await SaversVault.connect(addr1).deposit(amount);
+      await triggerInterest();
+
+      await expect(
+        SaversVault.reinvestIncentives(
+          incentivesAmount,
+          [aDAI.address],
+          [farmToken.address, sDAI.address]
+        )
+      ).to.be.revertedWith("swapPath should end with DAI");
     });
   });
 });
