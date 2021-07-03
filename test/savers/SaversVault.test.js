@@ -193,7 +193,7 @@ describe("SaversVault", function () {
       await SaversVault.deposit(amount);
 
       await expect(
-        SaversVault.withdraw(ethers.constants.MaxUint256)
+        SaversVault.withdraw(ethers.BigNumber.from(amount).mul(2))
       ).to.be.revertedWith("ERC20: burn amount exceeds balance");
 
       expect(await sDAI.balanceOf(owner.address)).to.equal(amount);
@@ -226,6 +226,52 @@ describe("SaversVault", function () {
       expect(await sDAI.balanceOf(SaversVault.address)).to.equal(0);
       expect(await aDAI.balanceOf(SaversVault.address)).to.equal(0);
       expect(await DAI.balanceOf(SaversVault.address)).to.equal(0);
+    });
+
+    it("Should be successful over multiple partial amounts", async function () {
+      const amount = getRandomAmount();
+      await DAI.transfer(addr1.address, amount);
+      await SaversVault.connect(addr1).deposit(amount);
+      const interestEarned = await triggerInterest();
+
+      // First withdraw of partial balance
+      const balance = await sDAI.balanceOf(addr1.address);
+      const partialWithdrawAmount = balance.div(2);
+      await SaversVault.connect(addr1).withdraw(partialWithdrawAmount);
+      const remainingBalance = ethers.BigNumber.from(amount)
+        .add(interestEarned)
+        .sub(partialWithdrawAmount);
+
+      expect(await sDAI.balanceOf(addr1.address)).to.equal(remainingBalance);
+      expect(await aDAI.balanceOf(addr1.address)).to.equal(0);
+      expect(await DAI.balanceOf(addr1.address)).to.equal(
+        partialWithdrawAmount
+      );
+
+      expect(await sDAI.balanceOf(SaversVault.address)).to.equal(0);
+      expect(await aDAI.balanceOf(SaversVault.address)).to.equal(
+        remainingBalance
+      );
+      expect(await DAI.balanceOf(SaversVault.address)).to.equal(0);
+
+      const totalDeposit = ethers.BigNumber.from(amount).sub(
+        partialWithdrawAmount.mul(amount).mul(10000).div(balance).div(10000)
+      );
+      expect(await SaversVault.totalDaiDeposits()).to.equal(totalDeposit);
+
+      // Second withdraw of remaining balance
+      await SaversVault.connect(addr1).withdraw(remainingBalance);
+      const totalAmount = ethers.BigNumber.from(amount).add(interestEarned);
+
+      expect(await sDAI.balanceOf(addr1.address)).to.equal(0);
+      expect(await aDAI.balanceOf(addr1.address)).to.equal(0);
+      expect(await DAI.balanceOf(addr1.address)).to.equal(totalAmount);
+
+      expect(await sDAI.balanceOf(SaversVault.address)).to.equal(0);
+      expect(await aDAI.balanceOf(SaversVault.address)).to.equal(0);
+      expect(await DAI.balanceOf(SaversVault.address)).to.equal(0);
+
+      expect(await SaversVault.totalDaiDeposits()).to.equal(0);
     });
   });
 

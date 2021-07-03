@@ -25,7 +25,7 @@ contract SaversDAI is ERC20, Ownable {
   }
 
   function burn(address account, uint256 amount) public onlyOwner {
-    _burn(account, getPrincipalBalance(account, amount));
+    _burn(account, amount);
   }
 
   function balanceOf(address account) public view override returns (uint256) {

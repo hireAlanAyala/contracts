@@ -76,11 +76,14 @@ contract SaversVault {
    * @dev Redeem sDAI for deposited DAI + interest earned.
    */
   function withdraw(uint256 amount) external {
-    // burn sDAI on user
-    saversDai.burn(msg.sender, amount);
+    // get the correct portion of principal deposit to withdraw
+    uint256 withdrawnDepositScaled =
+      (amount * accountDaiDeposits[msg.sender] * 10**18) /
+        (accountDaiDeposits[msg.sender] + interestEarnedForAccount(msg.sender));
+    uint256 withdrawnDeposit = withdrawnDepositScaled / 10**18;
 
-    // get deposit amount before payout
-    uint256 depositAmount = amount - interestEarnedForAccount(msg.sender);
+    // burn sDAI on user
+    saversDai.burn(msg.sender, withdrawnDeposit);
 
     // burn aDAI in vault and send DAI to user
     ILendingPool(_getAaveLendingPoolAddress()).withdraw(
@@ -90,8 +93,8 @@ contract SaversVault {
     );
 
     // update mappings
-    totalDaiDeposits -= depositAmount;
-    accountDaiDeposits[msg.sender] -= depositAmount;
+    totalDaiDeposits -= withdrawnDeposit;
+    accountDaiDeposits[msg.sender] -= withdrawnDeposit;
   }
 
   /**
