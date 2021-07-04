@@ -17,7 +17,5 @@
 
 ## Deployed Contracts
 
-⚠️ For testing only ⚠️
-
-- SaversVault: https://polygonscan.com/address/0x3072594B99e7eeAb427F63f9C70aBCe14Ba16c2A
-- SaversDAI: https://polygonscan.com/address/0x159cc39c3995fd666338a540b305569120dda339
+- SaversVault: https://polygonscan.com/address/0x8834024eEf4A512b8159321b21B6deB7E6E1Ec4A
+- SaversDAI: https://polygonscan.com/address/0x1786fbbC5757e728C585Af719a27a459844D0334
